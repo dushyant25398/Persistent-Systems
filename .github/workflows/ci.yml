@@ -6,7 +6,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Checkout code
@@ -19,7 +19,8 @@ jobs:
         run: |
           IMAGE=10.10.20.47:8082/flask-listener:${{ github.sha }}
           docker build -t $IMAGE ./flask-app
-          docker login 10.10.20.47:8082 -u ${{ secrets.NEXUS_USER }} -p ${{ secrets.NEXUS_PASS }}
+          # Use password-stdin to avoid CLI warning
+          echo "${{ secrets.NEXUS_PASS }}" | docker login 10.10.20.47:8082 -u "${{ secrets.NEXUS_USER }}" --password-stdin
           docker push $IMAGE
 
       - name: Update Deployment Manifest
