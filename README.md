@@ -947,5 +947,81 @@ jobs:
 
 Stored Credentials in GitHub Secrets.
 
+Giving the Permissions only for the test namespace.
+---
+
+**`flask-rbac.yaml`**
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: flask-app-role
+  namespace: test
+rules:
+  # Allow reading and listing pods and services in the namespace
+  - apiGroups: [""]
+    resources: ["pods", "services"]
+    verbs: ["get", "list", "watch"]
+  
+  # Allow reading configmaps and secrets if the app needs them
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list"]
+  
+  # Allow updating deployments (optional, only if app updates itself)
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+```
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: flask-app-rolebinding
+  namespace: test
+subjects:
+  - kind: ServiceAccount
+    name: flask-sa  # You can create this service account and assign to your pods
+    namespace: test
+roleRef:
+  kind: Role
+  name: flask-app-role
+  apiGroup: rbac.authorization.k8s.io
+```
+
+---
+
+**How to use it:**
+
+1. Create a service account for your Flask app pods:
+
+```bash
+kubectl create serviceaccount flask-sa -n test
+```
+
+2. Apply the RBAC manifest:
+
+```bash
+kubectl apply -f flask-rbac.yaml
+```
+
+3. Update your Deployment to use the service account:
+
+```yaml
+spec:
+  serviceAccountName: flask-sa
+```
+
+---
+
+ **This ensures:**
+
+* The app can only list/get pods, services, configmaps, and secrets in its own namespace.
+* No cluster-wide privileges are given.
+* Easy to extend if new resources are needed later.
+
+
 
 
