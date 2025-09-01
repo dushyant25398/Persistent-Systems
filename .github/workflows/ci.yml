@@ -30,11 +30,14 @@ jobs:
           docker push $IMAGE_HUB
 
       - name: Update Deployment Manifest
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           IMAGE_HUB=lucky2821/flask-listener:${{ github.sha }}
           sed -i "s|image:.*|image: $IMAGE_HUB|" flask-k8s/deploy.yaml
-          git config --global user.email "ci-bot@org.com"
-          git config --global user.name "ci-bot"
-          git commit -am "Update image to $IMAGE_HUB"
-          git push
+          git config --global user.email "dushyant25398@gmail.com"
+          git config --global user.name "Dushyant"
+          git add flask-k8s/deploy.yaml
+          git commit -m "Update image to $IMAGE_HUB"
+          git push https://$GH_PAT@github.com/dushyant25398/Persistent-Systems.git main
 
