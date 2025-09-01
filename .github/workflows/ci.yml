@@ -1,4 +1,4 @@
-name: Build and Update GitOps
+name: Build & Deploy Flask App (GitOps)
 
 on:
   push:
@@ -6,28 +6,35 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Docker
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Build and Push Image to Nexus
+      - name: Docker Login to Docker Hub
         run: |
-          IMAGE=10.10.20.47:8082/flask-listener:${{ github.sha }}
-          docker build -t $IMAGE ./flask-app
-          # Use password-stdin to avoid CLI warning
-          echo "${{ secrets.NEXUS_PASS }}" | docker login 10.10.20.47:8082 -u "${{ secrets.NEXUS_USER }}" --password-stdin
-          docker push $IMAGE
+          echo "${{ secrets.DOCKERHUB_PAT }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build Docker Image
+        run: |
+          IMAGE_HUB=lucky2821/flask-listener:${{ github.sha }}
+          docker build -t $IMAGE_HUB ./flask-app
+
+      - name: Push Docker Image
+        run: |
+          IMAGE_HUB=lucky2821/flask-listener:${{ github.sha }}
+          docker push $IMAGE_HUB
 
       - name: Update Deployment Manifest
         run: |
-          sed -i "s|image:.*|image: 10.10.20.47:8082/flask-listener:${{ github.sha }}|" flask-k8s/deploy.yaml
+          IMAGE_HUB=lucky2821/flask-listener:${{ github.sha }}
+          sed -i "s|image:.*|image: $IMAGE_HUB|" flask-k8s/deploy.yaml
           git config --global user.email "ci-bot@org.com"
           git config --global user.name "ci-bot"
-          git commit -am "Update image to 10.10.20.47:8082/flask-listener:${{ github.sha }}"
+          git commit -am "Update image to $IMAGE_HUB"
           git push
 
