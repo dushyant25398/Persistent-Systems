@@ -8,7 +8,6 @@ This repository contains a simple Flask application that receives GET and POST r
 ---
 
 
----
 
 # Design Proposal
 
@@ -32,21 +31,23 @@ This repository contains a simple Flask application that receives GET and POST r
 **Q5: How would your design handle a 10x traffic spike while keeping costs under control?**
 **A5:** I would rely on HPA along with **Cluster Autoscaler** to dynamically scale nodes. Efficient resource allocation and container sizing would prevent over-provisioning and manage costs. Caching and load balancing strategies would help handle sudden traffic spikes without impacting performance or infrastructure expenses.
 
----
 
 
----
 
 **Q6: How would you ensure zero-downtime deployments in this setup?**
+
 **A6:** Zero-downtime deployments can be achieved using **rolling updates** with Kubernetes Deployments. By gradually updating pods while keeping existing ones running, traffic continues uninterrupted. Readiness and liveness probes ensure only healthy pods receive traffic. For critical updates, **canary deployments** can be used to release changes to a subset of users before rolling out fully.
 
 **Q7: How should secrets (DB credentials, API keys) be managed in Kubernetes?**
+
 **A7:** Secrets should be stored using **Kubernetes Secrets** rather than in plaintext. Access should be granted via **service accounts with least privilege**, and sensitive data should be mounted as environment variables or volumes inside pods. For additional security, secrets can be encrypted at rest, and external secret managers (like **HashiCorp Vault** or cloud KMS) can be integrated.
 
 **Q8: How would you design for multi-cluster or disaster recovery (DR) readiness if required by the client?**
+
 **A8:** Multi-cluster or DR readiness can be achieved by replicating workloads across clusters in different regions. **Cluster Federation** or GitOps-driven deployments ensure consistent configuration. Backups for persistent volumes and databases, along with automated failover, allow quick recovery. Traffic can be routed intelligently via **DNS failover** or **global load balancers**.
 
 **Q9: What would your incident response plan look like for a regional outage?**
+
 **A9:** The incident response plan would include automated monitoring and alerting through **Prometheus/Grafana** for rapid detection. The plan involves failing over traffic to secondary clusters, restoring services from backups, and performing root cause analysis. Communication channels would be pre-defined for stakeholders, and post-incident review would update procedures to prevent recurrence.
 
 ---
@@ -820,6 +821,8 @@ Grafana evaluates alerts every 1 minute by default.
 ---
 
 Jenkins Pipeline for CI/CD
+
+
 pipeline {
     agent any
 
@@ -890,10 +893,56 @@ pipeline {
     }
 }
 
+
+
 ### Jenkins pipeline used here 
 ---
 
+### GitOps Pipeline 
 
+
+
+
+name: Build & Deploy Flask App (GitOps)
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Docker Login to Docker Hub
+        run: |
+          echo "${{ secrets.DOCKERHUB_PAT }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+      - name: Build Docker Image
+        run: |
+          IMAGE_HUB=lucky2821/flask-listener:${{ github.sha }}
+          docker build -t $IMAGE_HUB ./flask-app
+      - name: Push Docker Image
+        run: |
+          IMAGE_HUB=lucky2821/flask-listener:${{ github.sha }}
+          docker push $IMAGE_HUB
+      - name: Update Deployment Manifest
+        run: |
+          IMAGE_HUB=lucky2821/flask-listener:${{ github.sha }}
+          sed -i "s|image:.*|image: $IMAGE_HUB|" flask-k8s/deploy.yaml
+          git config --global user.email "ci-bot@org.com"
+          git config --global user.name "ci-bot"
+          git commit -am "Update image to $IMAGE_HUB"
+          git push
+
+
+
+Stored Credentials in GitHub Secrets.
 
 
 
